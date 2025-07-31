@@ -17,6 +17,7 @@
         gap: 10px;
         justify-content: center;
         margin-bottom: 20px;
+        flex-wrap: wrap;
       }
       .week-tabs button {
         padding: 8px 16px;
@@ -40,16 +41,8 @@
         text-align: center;
         background: white;
       }
-      td:has(input[type="checkbox"]) {
-        /* 스타일 작성 */
-        width: 50px;
-        height: 50px;
-        padding: 0;
-        text-align: center;
-        vertical-align: middle;
-      }
+      td:has(input[type="checkbox"]),
       th:has(input[type="checkbox"]) {
-        /* 스타일 작성 */
         width: 50px;
         height: 50px;
         padding: 0;
@@ -76,6 +69,59 @@
         box-sizing: border-box;
         cursor: pointer;
         display: block;
+      }
+
+      /* ===== 모바일 대응 ===== */
+      @media screen and (max-width: 768px) {
+        table,
+        thead,
+        tbody,
+        th,
+        td,
+        tr {
+          display: block;
+          width: 100%;
+        }
+
+        thead {
+          display: none;
+        }
+
+        tr {
+          margin-bottom: 15px;
+          border: 1px solid #ccc;
+          border-radius: 5px;
+          padding: 10px;
+          background: white;
+        }
+
+        td {
+          display: flex;
+          justify-content: space-between;
+          padding: 8px 10px;
+          border: none;
+          border-bottom: 1px solid #eee;
+          position: relative;
+        }
+
+        td::before {
+          content: attr(data-label);
+          font-weight: bold;
+          margin-right: 10px;
+          flex-shrink: 0;
+        }
+
+        td:last-child {
+          border-bottom: none;
+        }
+        td:has(input[type="checkbox"]),
+        th:has(input[type="checkbox"]) {
+          width: 100px;
+          height: 100px;
+          padding: 0;
+          text-align: center;
+          vertical-align: middle;
+        }
       }
     </style>
   </head>
@@ -843,24 +889,35 @@
           chk.checked = saved === "true";
         });
       }
-
       function renderTable(week) {
         const weekPlan = plans["week" + week];
         if (!weekPlan) return;
 
-        let html = `<table><tr><th><input disabled type="checkbox" id="all-check"></th><th>요일</th><th>식단</th><th>운동</th><th>생활습관</th></tr>`;
+        let html = `
+    <table>
+      <tr>
+        <th data-label="선택"><input disabled type="checkbox" id="all-check"></th>
+        <th data-label="요일">요일</th>
+        <th data-label="식단">식단</th>
+        <th data-label="운동">운동</th>
+        <th data-label="생활습관">생활습관</th>
+      </tr>`;
+
         for (const day of weekPlan) {
-          html += `<tr onclick="showDetail('${week}', '${day.day}')">
-  <td><input type="checkbox" class="day-check" data-week="${week}" data-day="${day.day}" onclick="event.stopPropagation()"></td>
-  <td>${day.day}</td>
-  <td>${day.food.short}</td>
-  <td>${day.exercise.short}</td>
-  <td>${day.habit.short}</td>
-</tr>`;
+          html += `
+      <tr onclick="showDetail('${week}', '${day.day}')">
+        <td data-label="선택"><input type="checkbox" class="day-check" data-week="${week}" data-day="${day.day}" onclick="event.stopPropagation()"></td>
+        <td data-label="요일">${day.day}</td>
+        <td data-label="식단">${day.food.short}</td>
+        <td data-label="운동">${day.exercise.short}</td>
+        <td data-label="생활습관">${day.habit.short}</td>
+      </tr>`;
         }
+
         html += `</table>`;
         tablesContainer.innerHTML = html;
         detailBox.style.display = "none";
+
         document.querySelectorAll(".day-check").forEach((chk) => {
           chk.addEventListener("change", (e) => {
             const week = e.target.dataset.week;
