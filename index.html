@@ -1,0 +1,883 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <title>한달 다이어트 플랜</title>
+    <style>
+      body {
+        font-family: sans-serif;
+        padding: 20px;
+        background: #f9f9f9;
+      }
+      h1 {
+        text-align: center;
+      }
+      .week-tabs {
+        display: flex;
+        gap: 10px;
+        justify-content: center;
+        margin-bottom: 20px;
+      }
+      .week-tabs button {
+        padding: 8px 16px;
+        cursor: pointer;
+        border: 1px solid #ccc;
+        background: #eee;
+      }
+      .week-tabs button.active {
+        background: #333;
+        color: white;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 10px;
+      }
+      th,
+      td {
+        padding: 8px;
+        border: 1px solid #ccc;
+        text-align: center;
+        background: white;
+      }
+      td:has(input[type="checkbox"]) {
+        /* 스타일 작성 */
+        width: 50px;
+        height: 50px;
+        padding: 0;
+        text-align: center;
+        vertical-align: middle;
+      }
+      th:has(input[type="checkbox"]) {
+        /* 스타일 작성 */
+        width: 50px;
+        height: 50px;
+        padding: 0;
+        text-align: center;
+        vertical-align: middle;
+      }
+      tr:hover {
+        background: #f0f8ff;
+        cursor: pointer;
+      }
+      .detail-box {
+        background: #fff;
+        border: 1px solid #aaa;
+        padding: 15px;
+        display: none;
+        margin-top: 10px;
+      }
+      td input[type="checkbox"],
+      th input[type="checkbox"] {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        cursor: pointer;
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>다이어트 플랜</h1>
+    <div class="week-tabs">
+      <button onclick="showWeek(1)" class="active">1주차</button>
+      <button onclick="showWeek(2)">2주차</button>
+      <button onclick="showWeek(3)">3주차</button>
+      <button onclick="showWeek(4)">4주차</button>
+    </div>
+    <div id="tables-container">
+      <!-- 각 주차별 테이블은 JS에서 삽입 -->
+    </div>
+    <div class="detail-box" id="detailBox"></div>
+    <div style="max-width: 600px; margin: 20px auto">
+      <h2>매일 숫자 입력</h2>
+      <input type="date" id="inputDate" />
+      <input type="number" id="inputValue" placeholder="값 입력" />
+      <button id="saveBtn">저장</button>
+
+      <canvas
+        id="lineChart"
+        width="600"
+        height="300"
+        style="background: #fff; border: 1px solid #ccc; margin-top: 20px"
+      ></canvas>
+    </div>
+
+    <script>
+      const inputDate = document.getElementById("inputDate");
+      const inputValue = document.getElementById("inputValue");
+      const saveBtn = document.getElementById("saveBtn");
+      const canvas = document.getElementById("lineChart");
+      const ctx = canvas.getContext("2d");
+
+      const today = new Date();
+      const yyyy = today.getFullYear();
+      const mm = String(today.getMonth() + 1).padStart(2, "0");
+      const dd = String(today.getDate()).padStart(2, "0");
+      inputDate.value = `${yyyy}-${mm}-${dd}`;
+      function getData() {
+        const raw = localStorage.getItem("dailyNumbers");
+        return raw ? JSON.parse(raw) : {};
+      }
+
+      function saveData(date, value) {
+        const data = getData();
+        data[date] = value;
+        localStorage.setItem("dailyNumbers", JSON.stringify(data));
+      }
+
+      function drawChart() {
+        const data = getData();
+        const dates = Object.keys(data).sort();
+        if (dates.length === 0) {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          ctx.fillText("데이터 없음", canvas.width / 2 - 30, canvas.height / 2);
+          return;
+        }
+
+        // 그래프 그리기 기본 세팅
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.strokeStyle = "#0077cc";
+        ctx.lineWidth = 2;
+        ctx.fillStyle = "#000";
+        ctx.font = "12px sans-serif";
+
+        // 좌표계 여백
+        const padding = 40;
+        const w = canvas.width - padding * 2;
+        const h = canvas.height - padding * 2;
+
+        // 값 범위 계산
+        const values = dates.map((d) => Number(data[d]));
+        const maxVal = Math.max(...values);
+        const minVal = Math.min(...values);
+
+        // x축: 날짜 간격 균등 배치
+        // y축: 값 범위에 맞게 비율 조절
+        ctx.beginPath();
+        dates.forEach((date, i) => {
+          const x = padding + (w / (dates.length - 1)) * i;
+          const y =
+            padding + h - ((values[i] - minVal) / (maxVal - minVal || 1)) * h;
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+          // 점 찍기
+          ctx.fillRect(x - 3, y - 3, 6, 6);
+
+          // 날짜 라벨
+          ctx.fillText(date.slice(5), x - 15, canvas.height - 10);
+        });
+        ctx.stroke();
+
+        // y축 라벨 (최댓값, 최솟값)
+        ctx.fillText(maxVal, 5, padding + 10);
+        ctx.fillText(minVal, 5, padding + h);
+      }
+
+      saveBtn.addEventListener("click", () => {
+        const date = inputDate.value;
+        const value = inputValue.value;
+        if (!date || !value) {
+          alert("날짜와 값을 모두 입력하세요.");
+          return;
+        }
+        saveData(date, Number(value));
+        drawChart();
+        inputValue.value = "";
+      });
+
+      drawChart();
+
+      const tablesContainer = document.getElementById("tables-container");
+      const detailBox = document.getElementById("detailBox");
+
+      const plans = {
+        week1: [
+          {
+            day: "월요일",
+            food: {
+              short: "일반식 절반 + 채소",
+              detail: `
+        <strong>아침:</strong> 백미/잡곡밥 반공기, 계란 1개, 나물 조금<br>
+        <strong>점심:</strong> 고기나 생선 1/2인분, 나물/샐러드 많이, 된장국<br>
+        <strong>저녁:</strong> 잡곡밥, 채소볶음, 두부 반찬
+      `,
+              alt: "곤약밥, 닭가슴살 도시락",
+            },
+            exercise: {
+              short: "스트레칭 10분",
+              detail: "전신 스트레칭: 목, 어깨, 허리, 다리 위주로 10분",
+              alt: "요가 앱 따라하기",
+            },
+            habit: {
+              short: "물 1.5L 마시기",
+              detail:
+                "아침 기상 직후 1컵 + 식사 전후 + 오후 집중력 저하 시 1컵씩",
+              alt: "허브티, 무가당 차",
+            },
+          },
+          {
+            day: "화요일",
+            food: {
+              short: "단백질 위주 식사",
+              detail: `
+        <strong>아침:</strong> 삶은 계란 2개, 그릭 요거트<br>
+        <strong>점심:</strong> 닭가슴살, 삶은 브로콜리, 고구마<br>
+        <strong>저녁:</strong> 두부 스테이크, 샐러드, 병아리콩
+      `,
+              alt: "두부, 그릭요거트, 병아리콩",
+            },
+            exercise: {
+              short: "실내 걷기 20분",
+              detail: "유튜브 실내 워킹 영상 따라하기",
+              alt: "제자리 걷기, 댄스핏",
+            },
+            habit: {
+              short: "야식 금지",
+              detail: "저녁 7시 이후 금식, 허기지면 따뜻한 물 or 무카페인차",
+              alt: "핫팩 배에 대고 잠들기",
+            },
+          },
+          {
+            day: "수요일",
+            food: {
+              short: "채식 위주",
+              detail: `
+        <strong>아침:</strong> 잡곡밥, 된장국, 나물반찬<br>
+        <strong>점심:</strong> 채식 비빔밥, 샐러드<br>
+        <strong>저녁:</strong> 채소 스튜, 두부구이
+      `,
+              alt: "채식 비빔밥, 샐러드볼",
+            },
+            exercise: {
+              short: "가벼운 근력운동",
+              detail: "스쿼트 10회 x 3세트, 팔굽혀펴기 무릎대고 10회 x 2",
+              alt: "물병 아령, 의자운동",
+            },
+            habit: {
+              short: "천천히 먹기",
+              detail: "한입에 20번 이상 씹기, 20분 이상 식사",
+              alt: "타이머 맞추고 식사",
+            },
+          },
+          {
+            day: "목요일",
+            food: {
+              short: "일반식 절반 + 채소",
+              detail: `
+        <strong>아침:</strong> 현미밥, 김치 조금<br>
+        <strong>점심:</strong> 화,수 반복 식단 변형 (소고기 불고기 or 두부 스테이크)<br>
+        <strong>저녁:</strong> 샐러드 또는 밀프랩 도시락 활용
+      `,
+              alt: "밀프랩 도시락 활용",
+            },
+            exercise: {
+              short: "스트레칭 + 워킹",
+              detail: "스트레칭 5분 + 실내 걷기 10분",
+              alt: "가벼운 춤 영상",
+            },
+            habit: {
+              short: "일찍 자기",
+              detail: "23시 이전 취침 시 공복 유지 쉬움",
+              alt: "블루라이트 차단 필터",
+            },
+          },
+          {
+            day: "금요일",
+            food: {
+              short: "간헐적 단식 시작",
+              detail: `
+        <strong>아침:</strong> 금식<br>
+        <strong>점심:</strong> 점심부터 저녁까지만 식사 (8시간 이내), 물/차 허용<br>
+        <strong>저녁:</strong> 고단백 식사 위주
+      `,
+              alt: "12:12 루틴으로 완화",
+            },
+            exercise: {
+              short: "걷기 20분",
+              detail: "집 안/밖 실천 자유",
+              alt: "계단 오르기",
+            },
+            habit: {
+              short: "체중 기록 시작",
+              detail: "아침 기상 직후 소변 후 기록",
+              alt: "앱 사용: 다이어트 플래너",
+            },
+          },
+          {
+            day: "토요일",
+            food: {
+              short: "단백질+채소",
+              detail: `
+        <strong>아침:</strong> 삶은 달걀 2개, 과일 조금<br>
+        <strong>점심:</strong> 구운 고기, 생채소 또는 데친 야채<br>
+        <strong>저녁:</strong> 쌈 채소, 된장, 삶은 달걀
+      `,
+              alt: "쌈 채소+된장+삶은달걀",
+            },
+            exercise: {
+              short: "스트레칭 15분",
+              detail: "어깨, 허리, 다리 중심으로 풀어주기",
+              alt: "요가 or 필라테스 영상",
+            },
+            habit: {
+              short: "모바일 시간 줄이기",
+              detail: "1시간 단위로 알림 설정 후 사용 제한",
+              alt: "타이머 앱 사용",
+            },
+          },
+          {
+            day: "일요일",
+            food: {
+              short: "자유식(조절)",
+              detail: `
+        <strong>아침:</strong> 가벼운 샐러드 또는 과일<br>
+        <strong>점심:</strong> 평소 클린식 유지, 단백질 위주 식사<br>
+        <strong>저녁:</strong> 배달 시 단백질 메뉴 중심으로 선택
+      `,
+              alt: "가벼운 샐러드, 닭가슴살 도시락",
+            },
+            exercise: {
+              short: "쉬는 날",
+              detail: "몸을 쉬게 해주되, 스트레칭은 해도 좋음",
+              alt: "산책 10분",
+            },
+            habit: {
+              short: "리셋 & 계획",
+              detail: "지난주 돌아보기 + 다음주 준비",
+              alt: "노션/캘린더 정리",
+            },
+          },
+        ],
+        week2: [
+          {
+            day: "월요일",
+            food: {
+              short: "잡곡밥 + 두부구이",
+              detail: `
+        <strong>아침:</strong> 현미잡곡밥 1공기, 두부구이 1모<br>
+        <strong>점심:</strong> 미역국, 오이무침<br>
+        <strong>저녁:</strong> 현미잡곡밥 소량, 두부구이, 나물 반찬
+      `,
+              alt: "곤약밥 + 계란찜",
+            },
+            exercise: {
+              short: "스트레칭 20분",
+              detail: "전신 스트레칭 10분 + 하체 스트레칭 10분",
+              alt: "가벼운 요가 15분",
+            },
+            habit: {
+              short: "물 2L 마시기",
+              detail: "아침 1잔, 식사 전 1잔, 오후 3잔 이상 목표",
+              alt: "무가당 차로 대체 가능",
+            },
+          },
+          {
+            day: "화요일",
+            food: {
+              short: "닭가슴살 샐러드",
+              detail: `
+        <strong>아침:</strong> 그릭 요거트, 삶은 달걀 1개<br>
+        <strong>점심:</strong> 닭가슴살 100g, 채소 샐러드, 올리브유 드레싱<br>
+        <strong>저녁:</strong> 참치샐러드 (기름 제거), 저염 간단 반찬
+      `,
+              alt: "참치샐러드(기름 제거)",
+            },
+            exercise: {
+              short: "집안일 1시간",
+              detail: "청소기, 설거지, 정리 등 가벼운 활동",
+              alt: "산책 30분",
+            },
+            habit: {
+              short: "식사일기 작성",
+              detail: "아침, 점심, 저녁, 간식 모두 기록",
+              alt: "사진으로 기록해도 됨",
+            },
+          },
+          {
+            day: "수요일",
+            food: {
+              short: "계란 + 고구마",
+              detail: `
+        <strong>아침:</strong> 삶은 계란 2개, 방울토마토<br>
+        <strong>점심:</strong> 고구마 1개, 나물 반찬<br>
+        <strong>저녁:</strong> 닭가슴살볼 소량, 현미밥 적당량
+      `,
+              alt: "닭가슴살볼 + 현미밥 소량",
+            },
+            exercise: {
+              short: "걷기 30분",
+              detail: "집 근처 빠르게 걷기, 땀이 살짝 날 정도",
+              alt: "제자리 걷기 40분",
+            },
+            habit: {
+              short: "식후 양치",
+              detail: "식사 후 바로 양치해서 간식 차단",
+              alt: "입 헹구기라도 하기",
+            },
+          },
+          {
+            day: "목요일",
+            food: {
+              short: "현미밥 + 된장국",
+              detail: `
+        <strong>아침:</strong> 두유, 바나나, 견과류 소량<br>
+        <strong>점심:</strong> 현미밥 1공기, 된장국, 가지볶음, 무생채<br>
+        <strong>저녁:</strong> 간단 샐러드, 저염 반찬
+      `,
+              alt: "두유 + 바나나 + 견과류",
+            },
+            exercise: {
+              short: "스트레칭 + 스쿼트",
+              detail: "전신 스트레칭 10분 + 스쿼트 3세트(15회)",
+              alt: "앉았다 일어서기 20회",
+            },
+            habit: {
+              short: "9시 이후 금식",
+              detail: "9시 이후 물 외 금지, 위장 안정",
+              alt: "8시 이후 가벼운 간식만 허용",
+            },
+          },
+          {
+            day: "금요일",
+            food: {
+              short: "두부김치 + 계란찜",
+              detail: `
+        <strong>아침:</strong> 계란찜 1인분<br>
+        <strong>점심:</strong> 두부 1/2모, 볶은 김치 소량<br>
+        <strong>저녁:</strong> 닭죽 또는 곤약잡채
+      `,
+              alt: "닭죽 or 곤약잡채",
+            },
+            exercise: {
+              short: "팔운동 + 스트레칭",
+              detail: "팔 돌리기, 푸시업 벽에서 10회씩 3세트",
+              alt: "물병 들고 10분 운동",
+            },
+            habit: {
+              short: "천천히 먹기",
+              detail: "한입당 20번 이상 씹고 15분 이상 식사 시간 확보",
+              alt: "숟가락 내려놓기 습관화",
+            },
+          },
+          {
+            day: "토요일",
+            food: {
+              short: "닭가슴살 도시락",
+              detail: `
+        <strong>아침:</strong> 삶은 계란 1개, 과일 소량<br>
+        <strong>점심:</strong> 닭가슴살, 브로콜리, 고구마<br>
+        <strong>저녁:</strong> 닭가슴살 도시락 반찬 위주 섭취
+      `,
+              alt: "일반 도시락 중 반찬 위주 섭취",
+            },
+            exercise: {
+              short: "산책 40분",
+              detail: "그늘 많은 길 걷기 + 수분 보충 병행",
+              alt: "실내 러닝머신 걷기",
+            },
+            habit: {
+              short: "아침 기상 시간 고정",
+              detail: "주말에도 기상 시간 유지해 리듬 유지",
+              alt: "9시 전 기상",
+            },
+          },
+          {
+            day: "일요일",
+            food: {
+              short: "자율식 (폭식 금지)",
+              detail: `
+        <strong>아침:</strong> 가벼운 과일 또는 샐러드<br>
+        <strong>점심:</strong> 먹고 싶은 것, 평소 양의 절반<br>
+        <strong>저녁:</strong> 튀김류 제외, 배달음식 가능하나 양 조절 필수
+      `,
+              alt: "양 조절한 배달음식 OK",
+            },
+            exercise: {
+              short: "스트레칭만",
+              detail: "간단한 전신 스트레칭으로 휴식",
+              alt: "하체 스트레칭 중심으로",
+            },
+            habit: {
+              short: "체중 측정",
+              detail: "일어난 직후 화장실 후, 같은 옷으로 측정",
+              alt: "사진으로 남기기",
+            },
+          },
+        ],
+        wee3: [
+          {
+            day: "월요일",
+            food: {
+              short: "현미밥 + 닭가슴살 + 나물",
+              detail: `
+        <strong>아침:</strong> 정제되지 않은 현미밥 1공기, 닭가슴살 100g, 삶은 나물(시금치, 고사리 등) 소량<br>
+        <strong>점심:</strong> 닭가슴살 100g, 나물 반찬, 저염 된장국<br>
+        <strong>저녁:</strong> 현미밥 소량, 삶은 나물, 계란찜 소량
+      `,
+              alt: "귀리밥 + 계란흰자 3개 + 두부부침",
+            },
+            exercise: {
+              short: "실내 유산소 (30분)",
+              detail: "유튜브 홈트 or 제자리 걷기, 에어사이클 등 30분 이상",
+              alt: "빨래 널기 + 계단 오르기 총합 30분",
+            },
+            habit: {
+              short: "30분 이상 앉아있지 않기",
+              detail:
+                "타이머 설정해서 30분마다 일어나 3분 스트레칭 또는 제자리 걷기",
+              alt: "앉은 채 허벅지 힘주며 수축 운동 10회",
+            },
+          },
+          {
+            day: "화요일",
+            food: {
+              short: "닭죽 + 삶은 달걀",
+              detail: `
+        <strong>아침:</strong> 오트밀죽 또는 닭죽 1그릇<br>
+        <strong>점심:</strong> 삶은 달걀 1~2개, 채소 샐러드<br>
+        <strong>저녁:</strong> 닭가슴살 슬라이스, 저염 반찬
+      `,
+              alt: "오트밀죽 + 치킨브레스트 슬라이스",
+            },
+            exercise: {
+              short: "하체 스트레칭",
+              detail: "종아리, 허벅지, 엉덩이 스트레칭 각 1분씩 3세트",
+              alt: "벽에 기대서 스쿼트 10초씩 5회",
+            },
+            habit: {
+              short: "물 2L 마시기",
+              detail:
+                "기상 직후 1잔, 식사 전후 1잔, 오후엔 타이머로 리마인드 설정",
+              alt: "허브티, 보리차, 무가당 옥수수차 등도 포함 가능",
+            },
+          },
+          {
+            day: "수요일",
+            food: {
+              short: "두부샐러드 + 고구마",
+              detail: `
+        <strong>아침:</strong> 삶은 달걀 2개, 방울토마토<br>
+        <strong>점심:</strong> 두부 100g, 채소 다양하게 (발사믹/레몬즙 드레싱)<br>
+        <strong>저녁:</strong> 찐 단호박, 쌈채소 소량
+      `,
+              alt: "삶은 달걀 2개 + 쌈채소 + 찐 단호박",
+            },
+            exercise: {
+              short: "상체 스트레칭",
+              detail: "목, 어깨, 등, 손목 스트레칭 각 1분씩 3세트",
+              alt: "수건 당기기, 팔 돌리기, 등 뒤 손 잡기 등",
+            },
+            habit: {
+              short: "식사시간 기록하기",
+              detail: "하루 식사 시간을 노트나 앱에 기록하여 패턴 파악",
+              alt: "사진으로 기록 + 하루 요약 정리",
+            },
+          },
+          {
+            day: "목요일",
+            food: {
+              short: "야채스프 + 닭가슴살볼",
+              detail: `
+        <strong>아침:</strong> 저염 시판 스프, 반숙 계란 1개<br>
+        <strong>점심:</strong> 야채스프 (양배추, 브로콜리, 토마토 등), 닭가슴살 미트볼<br>
+        <strong>저녁:</strong> 오트밀 한 컵, 가벼운 채소 샐러드
+      `,
+              alt: "시판 저염 스프 + 반숙계란 + 오트밀 한 컵",
+            },
+            exercise: {
+              short: "실내 유산소 (40분)",
+              detail:
+                "템포 빠른 홈트 영상 2개 연속, 중간에 물 섭취 및 쿨다운 포함",
+              alt: "4분 타바타 운동 + 스트레칭",
+            },
+            habit: {
+              short: "야식 끊기",
+              detail: "저녁 8시 이후 물만 허용, 습관화 위한 리마인더 앱 설정",
+              alt: "차라리 7시 30분쯤 가벼운 단백질 간식 섭취",
+            },
+          },
+          {
+            day: "금요일",
+            food: {
+              short: "잡곡밥 + 김치찌개(기름X)",
+              detail: `
+        <strong>아침:</strong> 현미밥 소량, 두부 반찬<br>
+        <strong>점심:</strong> 잡곡밥 반공기, 김치찌개 (기름 제거), 두부 위주<br>
+        <strong>저녁:</strong> 콩나물국, 삶은 계란 1개, 고구마 반 개
+      `,
+              alt: "콩나물국 + 삶은 계란 + 고구마 반 개",
+            },
+            exercise: {
+              short: "전신 스트레칭",
+              detail:
+                "가볍게 몸 풀기 + 요가 자세 몇 가지 (고양이 자세, 다운독 등)",
+              alt: "폼롤러 이용 근막이완",
+            },
+            habit: {
+              short: "기상 후 햇빛 쬐기",
+              detail: "창문 열고 햇빛 5분 이상 쬐기, 수면 리듬 개선용",
+              alt: "밝은 인공조명 앞에서 스트레칭",
+            },
+          },
+          {
+            day: "토요일",
+            food: {
+              short: "외식 or 치팅데이 (조절)",
+              detail: `
+        <strong>아침:</strong> 가벼운 과일 또는 샐러드<br>
+        <strong>점심:</strong> 단백질 중심 메뉴 선택, 튀김/밀가루 피함<br>
+        <strong>저녁:</strong> 회, 샤브샤브, 샐러드, 구운 고기류 중 선택
+      `,
+              alt: "회, 샤브샤브, 샐러디, 구운 고기류 선택",
+            },
+            exercise: {
+              short: "걷기 1시간",
+              detail:
+                "일상 중 걷기 누적 1시간, 야외 힘들면 쇼핑몰이나 지하철 계단 이용",
+              alt: "방 청소, 바닥 닦기 등 대체 가능",
+            },
+            habit: {
+              short: "과식 후 산책",
+              detail: "밥 먹고 앉지 않기, 15분 이상 천천히 걷기",
+              alt: "스탠딩 상태로 정리정돈 + 다리 근육 수축 운동",
+            },
+          },
+          {
+            day: "일요일",
+            food: {
+              short: "리셋: 샐러드 + 닭가슴살 + 두유",
+              detail: `
+        <strong>아침:</strong> 두유, 가벼운 과일<br>
+        <strong>점심:</strong> 샐러드, 닭가슴살<br>
+        <strong>저녁:</strong> 두부채소볶음, 고구마, 미역국
+      `,
+              alt: "두부채소볶음 + 고구마 + 미역국",
+            },
+            exercise: {
+              short: "스트레칭 & 휴식",
+              detail: "일주일 피로 풀기 중심. 가벼운 요가 or 누워서 호흡운동",
+              alt: "마사지볼로 셀프 마사지 + 족욕",
+            },
+            habit: {
+              short: "일주일 회고 + 다음주 계획",
+              detail: "다이어리나 앱에 지난 1주 요약 & 다음 목표 설정",
+              alt: "체중, 식사 사진 정리 + 한 줄 감상 적기",
+            },
+          },
+        ],
+        wee4: [
+          {
+            day: "월요일",
+            food: {
+              short: "고단백+채소",
+              detail:
+                "<strong>아침:</strong> 닭가슴살, 데친 브로콜리, 삶은 계란, 미소된장국<br>" +
+                "<strong>점심:</strong> 닭가슴살, 채소 샐러드, 현미밥 소량<br>" +
+                "<strong>저녁:</strong> 삶은 계란, 나물 반찬, 저염 미소된장국",
+              alt: "두부조림, 삶은 채소, 계란찜",
+            },
+            exercise: {
+              short: "스트레칭 + 짧은 걷기",
+              detail: "전신 스트레칭 10분<br>" + "실내 걷기 15분",
+              alt: "가벼운 요가 루틴",
+            },
+            habit: {
+              short: "수분 섭취",
+              detail: "하루 물 2L 이상<br>" + "식간에 자주 마시기",
+              alt: "무가당 허브티 대체 가능",
+            },
+          },
+          {
+            day: "화요일",
+            food: {
+              short: "한식 저염식",
+              detail:
+                "<strong>아침:</strong> 잡곡밥, 나물 2종<br>" +
+                "<strong>점심:</strong> 삶은 고기, 된장국<br>" +
+                "<strong>저녁:</strong> 현미밥, 찜닭 (간장 저염)",
+              alt: "현미밥 + 찜닭(간장 저염)",
+            },
+            exercise: {
+              short: "실내 자전거",
+              detail: "실내 자전거 20분 (저강도 유지)",
+              alt: "스텝퍼 15분",
+            },
+            habit: {
+              short: "식사일기 작성",
+              detail: "식사 시간, 음식 종류, 양 기록",
+              alt: "사진 기록 앱 사용",
+            },
+          },
+          {
+            day: "수요일",
+            food: {
+              short: "저탄수 위주",
+              detail:
+                "<strong>아침:</strong> 계란 2개, 오이무침<br>" +
+                "<strong>점심:</strong> 두부, 생채소 샐러드, 닭가슴살<br>" +
+                "<strong>저녁:</strong> 연두부, 나물 반찬",
+              alt: "삶은계란+오이무침+연두부",
+            },
+            exercise: {
+              short: "하체 스트레칭",
+              detail: "종아리, 햄스트링 위주 스트레칭 20분",
+              alt: "슬로우 스쿼트 10회 x 2세트",
+            },
+            habit: {
+              short: "야식 금지",
+              detail: "저녁 8시 이후 금식<br>" + "허기 시 물 섭취",
+              alt: "허기 시 무가당 껌, 따뜻한 물",
+            },
+          },
+          {
+            day: "목요일",
+            food: {
+              short: "고기+채소 균형",
+              detail:
+                "<strong>아침:</strong> 소고기구이, 쌈채소<br>" +
+                "<strong>점심:</strong> 나물, 된장국<br>" +
+                "<strong>저녁:</strong> 닭볶음탕(맵기 조절), 상추쌈",
+              alt: "닭볶음탕(맵기 조절) + 상추쌈",
+            },
+            exercise: {
+              short: "하체 + 복부",
+              detail: "스쿼트 3세트, 플랭크 2세트",
+              alt: "홈트 앱 초급 루틴",
+            },
+            habit: {
+              short: "스트레스 관리",
+              detail: "가벼운 명상, 핸드폰 멀리하기",
+              alt: "30분 독서",
+            },
+          },
+          {
+            day: "금요일",
+            food: {
+              short: "한식 클린식",
+              detail: "현미밥, 된장국, 야채볶음, 생선구이",
+              alt: "곤약밥 + 오븐구이채소",
+            },
+            exercise: {
+              short: "복부 중심",
+              detail: "크런치 20회 x 2세트, 레그레이즈",
+              alt: "유튜브 복부운동 10분 영상",
+            },
+            habit: {
+              short: "수면 체크",
+              detail: "취침 전 스마트폰 중단, 7시간 수면 목표",
+              alt: "수면 기록 앱 활용",
+            },
+          },
+          {
+            day: "토요일",
+            food: {
+              short: "잡곡+생선",
+              detail: "잡곡밥, 고등어구이, 나물, 무생채",
+              alt: "현미밥 + 연어구이",
+            },
+            exercise: {
+              short: "전신 루틴",
+              detail: "팔, 등, 하체 각각 1세트씩 (홈트 기준)",
+              alt: "필라테스 20분",
+            },
+            habit: {
+              short: "외식 조절",
+              detail: "외식 시 튀김류 피하고 반찬 위주 섭취",
+              alt: "외식 전 미리 샐러드 섭취",
+            },
+          },
+          {
+            day: "일요일",
+            food: {
+              short: "자유식 (절제)",
+              detail: "1끼 자유식, 2끼는 평소처럼 클린하게",
+              alt: "배달 음식 시 단백질 메뉴 위주 선택",
+            },
+            exercise: {
+              short: "가벼운 산책",
+              detail: "30분 산책 또는 실내 스트레칭",
+              alt: "에어로빅 영상 따라하기",
+            },
+            habit: {
+              short: "주간 점검",
+              detail: "체중, 식단, 컨디션 회고 + 다음 주 계획",
+              alt: "달력, 다이어리 기록",
+            },
+          },
+        ],
+      };
+
+      function showWeek(week) {
+        document
+          .querySelectorAll(".week-tabs button")
+          .forEach((btn) => btn.classList.remove("active"));
+        document
+          .querySelectorAll(".week-tabs button")
+          [week - 1].classList.add("active");
+        renderTable(week);
+      }
+      function saveCheck(week, day, checked) {
+        const key = `dietPlan_${week}_${day}`;
+        localStorage.setItem(key, checked);
+      }
+
+      function loadCheck() {
+        document.querySelectorAll(".day-check").forEach((chk) => {
+          const week = chk.dataset.week;
+          const day = chk.dataset.day;
+          const saved = localStorage.getItem(`dietPlan_${week}_${day}`);
+          chk.checked = saved === "true";
+        });
+      }
+
+      function renderTable(week) {
+        const weekPlan = plans["week" + week];
+        if (!weekPlan) return;
+
+        let html = `<table><tr><th><input disabled type="checkbox" id="all-check"></th><th>요일</th><th>식단</th><th>운동</th><th>생활습관</th></tr>`;
+        for (const day of weekPlan) {
+          html += `<tr onclick="showDetail('${week}', '${day.day}')">
+  <td><input type="checkbox" class="day-check" data-week="${week}" data-day="${day.day}" onclick="event.stopPropagation()"></td>
+  <td>${day.day}</td>
+  <td>${day.food.short}</td>
+  <td>${day.exercise.short}</td>
+  <td>${day.habit.short}</td>
+</tr>`;
+        }
+        html += `</table>`;
+        tablesContainer.innerHTML = html;
+        detailBox.style.display = "none";
+        document.querySelectorAll(".day-check").forEach((chk) => {
+          chk.addEventListener("change", (e) => {
+            const week = e.target.dataset.week;
+            const day = e.target.dataset.day;
+            saveCheck(week, day, e.target.checked);
+          });
+        });
+
+        loadCheck(); // 체크박스 상태 불러오기
+      }
+
+      function showDetail(week, dayName) {
+        const day = plans["week" + week].find((d) => d.day === dayName);
+        if (!day) return;
+
+        detailBox.innerHTML = `
+        <h3>${dayName} 상세 설명</h3>
+        <strong>식단</strong><br> ${day.food.detail}<br>
+        <em>대체안:</em> ${day.food.alt}<br><br>
+        <strong>운동:</strong> ${day.exercise.detail}<br>
+        <em>대체안:</em> ${day.exercise.alt}<br><br>
+        <strong>생활습관:</strong> ${day.habit.detail}<br>
+        <em>대체안:</em> ${day.habit.alt}
+      `;
+        detailBox.style.display = "block";
+      }
+
+      showWeek(1);
+    </script>
+  </body>
+</html>
