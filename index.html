@@ -868,7 +868,7 @@
       };
 
       function showWeek(week) {
-        document
+        window.document
           .querySelectorAll(".week-tabs button")
           .forEach((btn) => btn.classList.remove("active"));
         document
@@ -913,26 +913,9 @@
         <td data-label="생활습관">${day.habit.short}</td>
       </tr>`;
         }
-        let html2 = `
-    <table>`;
-
-        for (const day of weekPlan) {
-          html2 += `
-      <tr onclick="showDetail('${week}', '${day.day}')">
-        <td data-label="선택"><input type="checkbox" class="day-check" data-week="${week}" data-day="${day.day}" onclick="event.stopPropagation()"></td>
-        <td data-label="요일">${day.day}</td>
-        <td data-label="식단">${day.food.short}</td>
-        <td data-label="운동">${day.exercise.short}</td>
-        <td data-label="생활습관">${day.habit.short}</td>
-      </tr>`;
-        }
 
         html += `</table>`;
-        html2 += `</table>`;
-        window.addEventListener("resize", () => {
-          const isMobile = window.innerWidth <= 768;
-          tablesContainer.innerHTML = isMobile ? html2 : html;
-        });
+        tablesContainer.innerHTML = html;
         detailBox.style.display = "none";
 
         document.querySelectorAll(".day-check").forEach((chk) => {
